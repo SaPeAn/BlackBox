@@ -1,0 +1,6 @@
+../Core/Src/drv_lcd_st7565.c:28:6:lcd_init	32	static
+../Core/Src/drv_lcd_st7565.c:56:6:lcd_sendcommands	16	static
+../Core/Src/drv_lcd_st7565.c:63:6:lcd_bufupload	32	static
+../Core/Src/drv_lcd_st7565.c:75:6:buf_writesmb8x5	20	static
+../Core/Src/drv_lcd_st7565.c:88:9:buf_writestr8x5	24	static
+../Core/Src/drv_lcd_st7565.c:103:6:LCDbuf_erase	0	static
