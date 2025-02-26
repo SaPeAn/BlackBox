@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drv_lcd_st7565.h"
+#include <stdio.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,7 +72,14 @@ static void MX_RTC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int _write(int file, char *ptr, int len)
+  {
+  	for (int i = 0; i < len; i++)
+  	{
+  		ITM_SendChar(*ptr++);
+  	}
+  	return len;
+  }
 /* USER CODE END 0 */
 
 /**
@@ -89,7 +98,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  lcd_init();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -108,14 +116,23 @@ int main(void)
   MX_USB_PCD_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
+
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  lcd_init();
   uint16_t dutyCycle = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_1);
+
+  uint8_t temp_str[] = "Hello, World!!! Привет, Мир!!!";
+  short A = 0;
+  int B = 0;
+  long C = 0;
+  double D = 0.0f;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+#if 0
     while(dutyCycle < (__HAL_TIM_GET_AUTORELOAD(&htim1) - 100)) {
       __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle+=100);
       HAL_Delay(1);
@@ -124,11 +141,13 @@ int main(void)
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle-=100);
 	  HAL_Delay(1);
     }
-	//buf_writestr8x5("Hello, World!!!", 3, 15);
-    lcd_bufupload();
+#endif
 
-
-
+	buf_writestr8x5(temp_str, 1, 10);
+	lcd_bufupload();
+	D = sin((double)(D + 1));
+    printf("sin = %.3f\n\r", D);
+    HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
@@ -352,7 +371,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

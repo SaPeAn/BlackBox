@@ -1,4 +1,3 @@
-
 /*
  ******************************************************************************
  * drv_lcd_st7565.c
@@ -17,7 +16,7 @@
 #define   DISP_RESET_ON           HAL_GPIO_WritePin(DISP_RSE_GPIO_Port, DISP_RSE_Pin, RESET)
 #define   DISP_RESET_OFF          HAL_GPIO_WritePin(DISP_RSE_GPIO_Port, DISP_RSE_Pin, SET)
 
-uint8_t dispbuffer[8][128] = {{255,255,255,255,255,255,255,255}};
+uint8_t dispbuffer[8][128] = {0};
 uint8_t bufpg = 0;
 uint8_t bufcl = 0;
 
@@ -66,7 +65,7 @@ void lcd_bufupload(void)
   {
 	uint8_t tmp_arr[] = {(0xB0 + j), 0x10, 0x00};
     lcd_sendcommands(tmp_arr, 3);
-    HAL_SPI_Transmit(&hspi2, dispbuffer[j], 1, 20);
+    HAL_SPI_Transmit(&hspi2, dispbuffer[j], 128, 20);
   }
 }
 

@@ -69,8 +69,6 @@ void Error_Handler(void);
 #define DISP_SPI_CS_GPIO_Port GPIOB
 #define DISP_SPI_SCK_Pin GPIO_PIN_13
 #define DISP_SPI_SCK_GPIO_Port GPIOB
-#define DISP_SPI_MOSI_Pin GPIO_PIN_15
-#define DISP_SPI_MOSI_GPIO_Port GPIOB
 #define DISP_BRIGHT_PWM_Pin GPIO_PIN_8
 #define DISP_BRIGHT_PWM_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */

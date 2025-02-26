@@ -282,7 +282,7 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     PB13     ------> SPI2_SCK
     PB15     ------> SPI2_MOSI
     */
-    GPIO_InitStruct.Pin = DISP_SPI_CS_Pin|DISP_SPI_SCK_Pin|DISP_SPI_MOSI_Pin;
+    GPIO_InitStruct.Pin = DISP_SPI_CS_Pin|DISP_SPI_SCK_Pin|GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -315,7 +315,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     PB13     ------> SPI2_SCK
     PB15     ------> SPI2_MOSI
     */
-    HAL_GPIO_DeInit(GPIOB, DISP_SPI_CS_Pin|DISP_SPI_SCK_Pin|DISP_SPI_MOSI_Pin);
+    HAL_GPIO_DeInit(GPIOB, DISP_SPI_CS_Pin|DISP_SPI_SCK_Pin|GPIO_PIN_15);
 
   /* USER CODE BEGIN SPI2_MspDeInit 1 */
 
