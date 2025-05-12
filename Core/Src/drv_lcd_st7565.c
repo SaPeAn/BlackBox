@@ -7,8 +7,8 @@
  ******************************************************************************
 */
 
+#include <display_data.h>
 #include "drv_lcd_st7565.h"
-#include "display_data.h"
 #include "main.h"
 
 #define   DISP_INIT_SEND_COM      HAL_GPIO_WritePin(DISP_RS_GPIO_Port, DISP_RS_Pin, RESET)   // 0-cmd
@@ -49,13 +49,15 @@ void lcd_init(void)
 	(0xA6 | 0),       // Display Normal(0) / Display Reverse(1)
   };
   HAL_SPI_Transmit(&hspi2, init_data_array, 13, 20);
+  lcd_buferase();
+  lcd_bufupload();
   DISP_INIT_SEND_DAT;
 }
 
 void lcd_sendcommands(uint8_t* data, uint8_t N)
 {
   DISP_INIT_SEND_COM;
-  HAL_SPI_Transmit(&hspi2, data, N, 20);
+  HAL_SPI_Transmit(&hspi2, data, N, 10);
   DISP_INIT_SEND_DAT;
 }
 
@@ -65,13 +67,13 @@ void lcd_bufupload(void)
   {
 	uint8_t tmp_arr[] = {(0xB0 + j), 0x10, 0x00};
     lcd_sendcommands(tmp_arr, 3);
-    HAL_SPI_Transmit(&hspi2, dispbuffer[j], 128, 20);
+    HAL_SPI_Transmit(&hspi2, dispbuffer[j], 128, 10);
   }
 }
 
 
 /******************************************/
-void buf_writesmb8x5(const uint8_t ch, uint8_t pg, uint8_t cl)
+void lcd_bufwsmb8x5(const uint8_t ch, uint8_t pg, uint8_t cl)
 {
 	bufpg = pg;
 	bufcl = cl;
@@ -84,13 +86,13 @@ void buf_writesmb8x5(const uint8_t ch, uint8_t pg, uint8_t cl)
 	bufcl++;
 }
 
-uint8_t buf_writestr8x5(uint8_t *str, uint8_t pg, uint8_t cl)
+uint8_t lcd_bufwstr8x5(uint8_t *str, uint8_t pg, uint8_t cl)
 {
   if(str == NULL) str = str_null;
   uint8_t i = 0;
   while(str[i])
   {
-	  buf_writesmb8x5(str[i], pg, cl);
+	  lcd_bufwsmb8x5(str[i], pg, cl);
     cl += 6;
     if(cl > 122) {pg++; cl = 0;}
     if(pg > 7) return 0;
@@ -99,7 +101,7 @@ uint8_t buf_writestr8x5(uint8_t *str, uint8_t pg, uint8_t cl)
   return i;
 }
 
-void LCDbuf_erase(void)
+void lcd_buferase(void)
 {
   for(uint8_t j = 0; j < 8; j++)
     for(uint8_t i = 0; i < 128; i++) dispbuffer[j][i] = 0;

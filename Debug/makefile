@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := 130c8t6
+BUILD_ARTIFACT_NAME := Black_box
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-130c8t6.elf \
+Black_box.elf \
 
 MAP_FILES += \
-130c8t6.map \
+Black_box.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-130c8t6.list \
+Black_box.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: 130c8t6.elf secondary-outputs
+main-build: Black_box.elf secondary-outputs
 
 # Tool invocations
-130c8t6.elf 130c8t6.map: $(OBJS) $(USER_OBJS) C:\Users\SaPA\STM32CubeIDE\workspace_1.10.1\130c8t6\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -u _printf_float -o "130c8t6.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\SaPA\STM32CubeIDE\workspace_1.10.1\130c8t6\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="130c8t6.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+Black_box.elf Black_box.map: $(OBJS) $(USER_OBJS) D:\_Proj_MCU\STM32\Black_box\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -u _printf_float -o "Black_box.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"D:\_Proj_MCU\STM32\Black_box\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Black_box.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-130c8t6.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "130c8t6.list"
+Black_box.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Black_box.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) 130c8t6.elf 130c8t6.list 130c8t6.map default.size.stdout
+	-$(RM) Black_box.elf Black_box.list Black_box.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

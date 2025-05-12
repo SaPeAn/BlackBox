@@ -61,16 +61,40 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define SHUTDOWN_Pin GPIO_PIN_13
 #define SHUTDOWN_GPIO_Port GPIOC
+#define BAT_LVL_CTRL_Pin GPIO_PIN_0
+#define BAT_LVL_CTRL_GPIO_Port GPIOA
 #define DISP_RS_Pin GPIO_PIN_1
 #define DISP_RS_GPIO_Port GPIOA
 #define DISP_RSE_Pin GPIO_PIN_2
 #define DISP_RSE_GPIO_Port GPIOA
+#define JOYSTICK_BTN_Pin GPIO_PIN_3
+#define JOYSTICK_BTN_GPIO_Port GPIOA
+#define JOYSTICK_OX_Pin GPIO_PIN_0
+#define JOYSTICK_OX_GPIO_Port GPIOB
+#define JOYSTICK_OY_Pin GPIO_PIN_1
+#define JOYSTICK_OY_GPIO_Port GPIOB
+#define EXT_TX_Pin GPIO_PIN_10
+#define EXT_TX_GPIO_Port GPIOB
+#define EXT_RX_Pin GPIO_PIN_11
+#define EXT_RX_GPIO_Port GPIOB
 #define DISP_SPI_CS_Pin GPIO_PIN_12
 #define DISP_SPI_CS_GPIO_Port GPIOB
 #define DISP_SPI_SCK_Pin GPIO_PIN_13
 #define DISP_SPI_SCK_GPIO_Port GPIOB
 #define DISP_BRIGHT_PWM_Pin GPIO_PIN_8
 #define DISP_BRIGHT_PWM_GPIO_Port GPIOA
+#define ESP_UART_TX_Pin GPIO_PIN_9
+#define ESP_UART_TX_GPIO_Port GPIOA
+#define ESP_UART_RX_Pin GPIO_PIN_10
+#define ESP_UART_RX_GPIO_Port GPIOA
+#define BTN_1_Pin GPIO_PIN_4
+#define BTN_1_GPIO_Port GPIOB
+#define BTN_2_Pin GPIO_PIN_5
+#define BTN_2_GPIO_Port GPIOB
+#define BTN_3_Pin GPIO_PIN_6
+#define BTN_3_GPIO_Port GPIOB
+#define BTN_4_Pin GPIO_PIN_7
+#define BTN_4_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

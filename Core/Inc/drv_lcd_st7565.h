@@ -12,9 +12,9 @@
 
 void lcd_init(void);
 void lcd_sendcommands(uint8_t*, uint8_t);
+void lcd_bufwsmb8x5(const uint8_t, uint8_t, uint8_t);
+uint8_t lcd_bufwstr8x5(uint8_t*, uint8_t, uint8_t);
+void lcd_buferase(void);
 void lcd_bufupload(void);
-void buf_writesmb8x5(const uint8_t, uint8_t, uint8_t);
-uint8_t buf_writestr8x5(uint8_t*, uint8_t, uint8_t);
-void LCDbuf_erase(void);
 
 #endif /* INC_DRV_LCD_ST7565_H_ */
