@@ -147,14 +147,10 @@ int main(void)
   while (1)
   {
 
-    if( HAL_UART_Receive_IT (&huart2, temp_str, 1) != HAL_BUSY ) {
-      while( HAL_UART_Transmit_IT(&huart2, temp_str, 1) == HAL_BUSY );
-    }
-
-    /*lcd_buferase();
+    lcd_buferase();
 	lcd_bufwstr8x5(temp_str, 0, 0);
 	lcd_bufupload();
-	HAL_Delay(500);*/
+	HAL_Delay(500);
 
 
 #if 0
