@@ -17,8 +17,6 @@
 #define   DISP_RESET_OFF          HAL_GPIO_WritePin(DISP_RSE_GPIO_Port, DISP_RSE_Pin, SET)
 
 uint8_t dispbuffer[8][128] = {0};
-uint8_t bufpg = 0;
-uint8_t bufcl = 0;
 
 uint8_t str_null[] = "NULL";
 
@@ -75,15 +73,13 @@ void lcd_bufupload(void)
 /******************************************/
 void lcd_bufwsmb8x5(const uint8_t ch, uint8_t pg, uint8_t cl)
 {
-	bufpg = pg;
-	bufcl = cl;
 	for(uint8_t i = 0; i < 5; i++)
 	  {
-	    dispbuffer[bufpg][bufcl + i] = char_8x5[ch][i];
+	    dispbuffer[pg][cl + i] = char_8x5[ch][i];
 	  }
-	bufcl = cl+5;
-	dispbuffer[bufpg][bufcl] = 0x00;
-	bufcl++;
+	cl = cl+5;
+	dispbuffer[pg][cl] = 0x00;
+	cl++;
 }
 
 uint8_t lcd_bufwstr8x5(uint8_t *str, uint8_t pg, uint8_t cl)
@@ -99,6 +95,14 @@ uint8_t lcd_bufwstr8x5(uint8_t *str, uint8_t pg, uint8_t cl)
     i++;
   }
   return i;
+}
+
+void lcd_bufstrerase(uint8_t pg)
+{
+	for(uint8_t i = 0; i < 128; i++)
+		  {
+		    dispbuffer[pg][i] = 0;
+		  }
 }
 
 void lcd_buferase(void)

@@ -23,19 +23,22 @@
 /* USER CODE BEGIN Includes */
 #include "drv_lcd_st7565.h"
 #include <stdio.h>
-#include <math.h>
 #include <string.h>
+#include "RingBuffer.h"
 
-float D = 0.0f;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+RINGBUF_t ringbuf;
+uint8_t rx_buf[1024];
+uint8_t temp_byte;
+uint8_t temp_str[1024];
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -108,6 +111,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -129,43 +133,47 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-
+	lcd_init();
+  RingBuf_Init(rx_buf, 1024, 1, &ringbuf);
+	uint16_t dutyCycle = 0xB000;
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle);
+	sprintf((char*)temp_str, "%d", dutyCycle);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-  uint16_t dutyCycle = 0xB000;
-  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle);
-  dutyCycle = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_1);
-
-  lcd_init();
-  uint8_t temp_str[100];
-  sprintf((char*)temp_str, "%d", dutyCycle);
-  //uint16_t test = 100;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HAL_UART_Receive_IT(&huart3, &temp_byte, 1);
+  uint16_t buf_len = 0;
+  uint32_t period = 3000;
+  uint32_t temp_tick = 0;
 
   while (1)
   {
+	  RingBuf_Available(&buf_len, &ringbuf);
 
-    lcd_buferase();
-	lcd_bufwstr8x5(temp_str, 0, 0);
-	lcd_bufupload();
-	HAL_Delay(500);
+	  if((HAL_GetTick() - temp_tick) > period)
+	  {
+	  	temp_tick = HAL_GetTick();
+			if(buf_len)
+			{
+				RingBuf_DataRead(temp_str, buf_len, &ringbuf);
+				temp_str[buf_len] = '\0';
+				lcd_buferase();
+				lcd_bufwstr8x5(temp_str, 0, 0);
+				lcd_bufupload();
+			}
+	  }
 
 
-#if 0
-    while(dutyCycle < (__HAL_TIM_GET_AUTORELOAD(&htim1) - test)) {
-      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle+=test);
-      HAL_Delay(1);
-    }
-	while(dutyCycle > test) {
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle-=test);
-	  HAL_Delay(1);
-    }
 
-	if(!HAL_GPIO_ReadPin(BTN_1_GPIO_Port, BTN_1_Pin)){test-=100;};
-	if(!HAL_GPIO_ReadPin(BTN_2_GPIO_Port, BTN_2_Pin)){test+=100;};
-#endif
+		sprintf((char*)temp_str, "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
+		lcd_bufstrerase(7);
+		lcd_bufwstr8x5(temp_str, 7, 0);
+		lcd_bufupload();
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -671,7 +679,21 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if(huart == &huart3)
+  {
+    RingBuf_BytePut(temp_byte, &ringbuf);
+    HAL_UART_Receive_IT (&huart3, &temp_byte, 1);
+  }
+}
 
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if(huart == &huart3)
+  {
+  }
+}
 /* USER CODE END 4 */
 
 /**
