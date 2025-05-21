@@ -30,10 +30,17 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-RINGBUF_t ringbuf;
-uint8_t rx_buf[1024];
-uint8_t temp_byte;
-uint8_t temp_str[1024];
+typedef union{
+	uint16_t array[5];
+	struct{
+		uint16_t batlvl;
+		uint16_t jox;
+		uint16_t joy;
+		uint16_t tmpr;
+		uint16_t vref;
+	};
+}ADCdat_t;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,6 +55,7 @@ uint8_t temp_str[1024];
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 CAN_HandleTypeDef hcan;
 
@@ -64,12 +72,19 @@ UART_HandleTypeDef huart3;
 PCD_HandleTypeDef hpcd_USB_FS;
 
 /* USER CODE BEGIN PV */
+RINGBUF_t ringbuf;
+uint8_t rx_buf[1024];
+uint8_t temp_byte;
+uint8_t temp_str[1024];
+
+ADCdat_t ADC_data;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_CAN_Init(void);
 static void MX_SPI2_Init(void);
@@ -123,6 +138,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_ADC1_Init();
   MX_CAN_Init();
   MX_SPI2_Init();
@@ -145,13 +161,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   HAL_UART_Receive_IT(&huart3, &temp_byte, 1);
   uint16_t buf_len = 0;
-  uint32_t period = 3000;
+  uint32_t period = 100;
   uint32_t temp_tick = 0;
 /*---------------------------------------------------------------------------------------------------------------------------------------*/
   while (1)
   {
-	  RingBuf_Available(&buf_len, &ringbuf);
+  	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
 
+
+
+
+	  sprintf((char*)temp_str, "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
+		lcd_bufstrerase(7);
+		lcd_bufwstr8x5(temp_str, 7, 0);
+		lcd_bufupload();
+
+	  RingBuf_Available(&buf_len, &ringbuf);
 	  if((HAL_GetTick() - temp_tick) > period)
 	  {
 	  	temp_tick = HAL_GetTick();
@@ -163,15 +188,13 @@ int main(void)
 				lcd_bufwstr8x5(temp_str, 0, 0);
 				lcd_bufupload();
 			}
+			lcd_buferase();
+			sprintf(temp_str, "jox - %d", ADC_data.jox);
+			lcd_bufwstr8x5(temp_str, 0, 0);
+			sprintf(temp_str, "joy - %d", ADC_data.joy);
+			lcd_bufwstr8x5(temp_str, 1, 0);
+			lcd_bufupload();
 	  }
-
-
-
-		sprintf((char*)temp_str, "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
-		lcd_bufstrerase(7);
-		lcd_bufwstr8x5(temp_str, 7, 0);
-		lcd_bufupload();
-
 
 
     /* USER CODE END WHILE */
@@ -257,7 +280,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 3;
+  hadc1.Init.NbrOfConversion = 5;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -267,7 +290,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -286,6 +309,24 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_9;
   sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_VREFINT;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -312,11 +353,11 @@ static void MX_CAN_Init(void)
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 16;
+  hcan.Init.Prescaler = 8;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_1TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_6TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
@@ -630,6 +671,22 @@ static void MX_USB_PCD_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -691,6 +748,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if(huart == &huart3)
+  {
+  }
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+  if(hadc->Instance == ADC1)
   {
   }
 }

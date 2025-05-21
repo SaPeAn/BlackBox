@@ -1,6 +1,7 @@
-../Core/Src/main.c:88:5:_write	12	static,ignoring_inline_asm
-../Core/Src/main.c:188:6:SystemClock_Config	88	static,ignoring_inline_asm
-../Core/Src/main.c:102:5:main	120	static,ignoring_inline_asm
-../Core/Src/main.c:682:6:HAL_UART_RxCpltCallback	16	static
-../Core/Src/main.c:691:6:HAL_UART_TxCpltCallback	0	static
-../Core/Src/main.c:703:6:Error_Handler	0	static,ignoring_inline_asm
+../Core/Src/main.c:103:5:_write	12	static,ignoring_inline_asm
+../Core/Src/main.c:211:6:SystemClock_Config	88	static,ignoring_inline_asm
+../Core/Src/main.c:117:5:main	128	static,ignoring_inline_asm
+../Core/Src/main.c:739:6:HAL_UART_RxCpltCallback	16	static
+../Core/Src/main.c:748:6:HAL_UART_TxCpltCallback	0	static
+../Core/Src/main.c:755:6:HAL_ADC_ConvCpltCallback	0	static
+../Core/Src/main.c:767:6:Error_Handler	0	static,ignoring_inline_asm
