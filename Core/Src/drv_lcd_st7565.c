@@ -82,15 +82,23 @@ void lcd_bufwsmb8x5(const uint8_t ch, uint8_t pg, uint8_t cl)
 	cl++;
 }
 
-uint8_t lcd_bufwstr8x5(uint8_t *str, uint8_t pg, uint8_t cl)
+uint8_t lcd_bufwstr8x5(uint8_t *str, uint8_t pg, uint8_t cl, uint8_t newline_fl)
 {
   if(str == NULL) str = str_null;
   uint8_t i = 0;
   while(str[i])
   {
-	  lcd_bufwsmb8x5(str[i], pg, cl);
+	lcd_bufwsmb8x5(str[i], pg, cl);
     cl += 6;
-    if(cl > 122) {pg++; cl = 0;}
+    if(cl > 122)
+    {
+      if(newline_fl)
+      {
+        pg++;
+        cl = 0;
+      }
+      else return i;
+    }
     if(pg > 7) return 0;
     i++;
   }

@@ -57,8 +57,6 @@ typedef union{
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
-CAN_HandleTypeDef hcan;
-
 RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi1;
@@ -69,13 +67,11 @@ TIM_HandleTypeDef htim1;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 
-PCD_HandleTypeDef hpcd_USB_FS;
-
 /* USER CODE BEGIN PV */
 RINGBUF_t ringbuf;
 uint8_t rx_buf[1024];
 uint8_t temp_byte;
-uint8_t temp_str[1024];
+uint8_t temp_str[5][128];
 
 ADCdat_t ADC_data;
 
@@ -86,10 +82,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_CAN_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM1_Init(void);
-static void MX_USB_PCD_Init(void);
 static void MX_RTC_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
@@ -140,20 +134,17 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC1_Init();
-  MX_CAN_Init();
   MX_SPI2_Init();
   MX_TIM1_Init();
-  MX_USB_PCD_Init();
   MX_RTC_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-	lcd_init();
+  lcd_init();
   RingBuf_Init(rx_buf, 1024, 1, &ringbuf);
-	uint16_t dutyCycle = 0xB000;
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle);
-	sprintf((char*)temp_str, "%d", dutyCycle);
+  uint16_t dutyCycle = 0xB000;
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   /* USER CODE END 2 */
 
@@ -161,42 +152,62 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   HAL_UART_Receive_IT(&huart3, &temp_byte, 1);
   uint16_t buf_len = 0;
-  uint32_t period = 100;
-  uint32_t temp_tick = 0;
+  uint32_t period[3] = {50, 50, 50};
+  uint32_t temp_tick[3] = {0};
+  uint8_t bufuploadedfl = 0;
+  uint8_t buferasedfl = 1;
+  lcd_buferase();
 /*---------------------------------------------------------------------------------------------------------------------------------------*/
   while (1)
   {
   	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
+    RingBuf_Available(&buf_len, &ringbuf);
 
+    if(((HAL_GetTick() - temp_tick[0]) > period[0]) && buferasedfl)
+    {
+      temp_tick[0] = HAL_GetTick();
+      if(buf_len)
+      {
+        RingBuf_DataRead(temp_str[0], buf_len, &ringbuf);
+        temp_str[0][buf_len] = '\0';
+        lcd_bufwstr8x5(temp_str[0], 0, 0, 0);
+        strncpy((char*)temp_str[1], (char*)temp_str[0], 128);
+      }
+      else
+      {
+        lcd_bufwstr8x5(temp_str[1], 0, 0, 0);
+      }
 
+      sprintf((char*)temp_str[0], "jox - %d", ADC_data.jox);
+      lcd_bufwstr8x5(temp_str[0], 1, 0, 0);
+      sprintf((char*)temp_str[0], "joy - %d", ADC_data.joy);
+      lcd_bufwstr8x5(temp_str[0], 2, 0, 0);
+      sprintf((char*)temp_str[0], "Vbt - %.2f V", (float)((ADC_data.batlvl * 1.596) / ADC_data.vref));
+      lcd_bufwstr8x5(temp_str[0], 3, 0, 0);
+      sprintf((char*)temp_str[0], "tmp - %.1f%cC", ((((float)((ADC_data.tmpr * 1.2) / ADC_data.vref) - 0.76) / 2.5) + 25), 176);
+      lcd_bufwstr8x5(temp_str[0], 4, 0, 0);
 
+      sprintf((char*)temp_str[0], "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
+      lcd_bufwstr8x5(temp_str[0], 7, 0, 0);
 
-	  sprintf((char*)temp_str, "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
-		lcd_bufstrerase(7);
-		lcd_bufwstr8x5(temp_str, 7, 0);
-		lcd_bufupload();
+      buferasedfl = 0;
+    }
 
-	  RingBuf_Available(&buf_len, &ringbuf);
-	  if((HAL_GetTick() - temp_tick) > period)
-	  {
-	  	temp_tick = HAL_GetTick();
-			if(buf_len)
-			{
-				RingBuf_DataRead(temp_str, buf_len, &ringbuf);
-				temp_str[buf_len] = '\0';
-				lcd_buferase();
-				lcd_bufwstr8x5(temp_str, 0, 0);
-				lcd_bufupload();
-			}
-			lcd_buferase();
-			sprintf(temp_str, "jox - %d", ADC_data.jox);
-			lcd_bufwstr8x5(temp_str, 0, 0);
-			sprintf(temp_str, "joy - %d", ADC_data.joy);
-			lcd_bufwstr8x5(temp_str, 1, 0);
-			lcd_bufupload();
-	  }
-
-
+    /*-----------------Отправка данных из буфера на дисплей------------*/
+    if((HAL_GetTick() - temp_tick[2]) > period[2])
+    {
+      temp_tick[2] = HAL_GetTick();
+      lcd_bufupload();
+      bufuploadedfl = 1;
+      printf("jox - %d, joy - %d\r\n", ADC_data.jox, ADC_data.joy);
+    }
+    if(bufuploadedfl) // после отправки очистить буфер
+    {
+      lcd_buferase();
+      bufuploadedfl = 0;
+      buferasedfl = 1;
+    }
+      /*-----------------------------------------------------------------*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -243,11 +254,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_ADC
-                              |RCC_PERIPHCLK_USB;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_ADC;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -334,43 +343,6 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
-
-}
-
-/**
-  * @brief CAN Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CAN_Init(void)
-{
-
-  /* USER CODE BEGIN CAN_Init 0 */
-
-  /* USER CODE END CAN_Init 0 */
-
-  /* USER CODE BEGIN CAN_Init 1 */
-
-  /* USER CODE END CAN_Init 1 */
-  hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 8;
-  hcan.Init.Mode = CAN_MODE_NORMAL;
-  hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_6TQ;
-  hcan.Init.TimeTriggeredMode = DISABLE;
-  hcan.Init.AutoBusOff = DISABLE;
-  hcan.Init.AutoWakeUp = DISABLE;
-  hcan.Init.AutoRetransmission = DISABLE;
-  hcan.Init.ReceiveFifoLocked = DISABLE;
-  hcan.Init.TransmitFifoPriority = DISABLE;
-  if (HAL_CAN_Init(&hcan) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CAN_Init 2 */
-
-  /* USER CODE END CAN_Init 2 */
 
 }
 
@@ -636,37 +608,6 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
-  * @brief USB Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USB_PCD_Init(void)
-{
-
-  /* USER CODE BEGIN USB_Init 0 */
-
-  /* USER CODE END USB_Init 0 */
-
-  /* USER CODE BEGIN USB_Init 1 */
-
-  /* USER CODE END USB_Init 1 */
-  hpcd_USB_FS.Instance = USB;
-  hpcd_USB_FS.Init.dev_endpoints = 8;
-  hpcd_USB_FS.Init.speed = PCD_SPEED_FULL;
-  hpcd_USB_FS.Init.low_power_enable = DISABLE;
-  hpcd_USB_FS.Init.lpm_enable = DISABLE;
-  hpcd_USB_FS.Init.battery_charging_enable = DISABLE;
-  if (HAL_PCD_Init(&hpcd_USB_FS) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USB_Init 2 */
-
-  /* USER CODE END USB_Init 2 */
 
 }
 
