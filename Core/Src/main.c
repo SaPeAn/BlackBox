@@ -15,6 +15,7 @@
   *
   ******************************************************************************
   */
+#define  AVER_PERIOD    10
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -22,8 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drv_lcd_st7565.h"
-#include <stdio.h>
-#include <string.h>
+//#include <stdio.h>
+//#include <string.h>
 #include "RingBuffer.h"
 
 /* USER CODE END Includes */
@@ -40,6 +41,20 @@ typedef union{
 		uint16_t vref;
 	};
 }ADCdat_t;
+
+uint32_t aver_counter = AVER_PERIOD;
+uint32_t adc_complete = 1;
+uint32_t adc_avercomplete = 1;
+
+typedef struct
+{
+  uint32_t batlvl;
+  uint32_t jox;
+  uint32_t joy;
+  uint32_t tmpr;
+  uint32_t vref;
+}ADCaverdat_t;
+
 
 /* USER CODE END PTD */
 
@@ -74,7 +89,7 @@ uint8_t temp_byte;
 uint8_t temp_str[5][128];
 
 ADCdat_t ADC_data;
-
+ADCaverdat_t ADC_averdata;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -140,74 +155,94 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
+
   /* USER CODE BEGIN 2 */
+
   lcd_init();
   RingBuf_Init(rx_buf, 1024, 1, &ringbuf);
   uint16_t dutyCycle = 0xB000;
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, dutyCycle);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   HAL_UART_Receive_IT(&huart3, &temp_byte, 1);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
+  adc_complete = 0;
   uint16_t buf_len = 0;
+  uint16_t buf_len_prev = 0;
   uint32_t period[3] = {50, 50, 50};
   uint32_t temp_tick[3] = {0};
-  uint8_t bufuploadedfl = 0;
-  uint8_t buferasedfl = 1;
   lcd_buferase();
+
+
+
 /*---------------------------------------------------------------------------------------------------------------------------------------*/
   while (1)
   {
-  	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
-    RingBuf_Available(&buf_len, &ringbuf);
+    if(adc_complete)
+    {
+      HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
+      adc_complete = 0;
+    }
 
-    if(((HAL_GetTick() - temp_tick[0]) > period[0]) && buferasedfl)
+
+    if((HAL_GetTick() - temp_tick[0]) > period[0])
     {
       temp_tick[0] = HAL_GetTick();
+      lcd_buferase();
+
+      RingBuf_Available(&buf_len, &ringbuf);
+
       if(buf_len)
       {
-        RingBuf_DataRead(temp_str[0], buf_len, &ringbuf);
-        temp_str[0][buf_len] = '\0';
-        lcd_bufwstr8x5(temp_str[0], 0, 0, 0);
-        strncpy((char*)temp_str[1], (char*)temp_str[0], 128);
+        if(buf_len_prev != buf_len)
+        {
+          buf_len_prev = buf_len;
+          temp_tick[2] = HAL_GetTick();
+        }
+        if((HAL_GetTick() - temp_tick[2]) > period[2])
+        {
+          RingBuf_DataRead(temp_str[0], buf_len, &ringbuf);
+          temp_str[0][buf_len] = '\0';
+          lcd_bufwstr8x5(temp_str[0], 0, 0, 0);
+          strncpy((char*)temp_str[1], (char*)temp_str[0], 128);
+        }
       }
       else
       {
         lcd_bufwstr8x5(temp_str[1], 0, 0, 0);
       }
 
-      sprintf((char*)temp_str[0], "jox - %d", ADC_data.jox);
-      lcd_bufwstr8x5(temp_str[0], 1, 0, 0);
-      sprintf((char*)temp_str[0], "joy - %d", ADC_data.joy);
-      lcd_bufwstr8x5(temp_str[0], 2, 0, 0);
-      sprintf((char*)temp_str[0], "Vbt - %.2f V", (float)((ADC_data.batlvl * 1.596) / ADC_data.vref));
-      lcd_bufwstr8x5(temp_str[0], 3, 0, 0);
-      sprintf((char*)temp_str[0], "tmp - %.1f%cC", ((((float)((ADC_data.tmpr * 1.2) / ADC_data.vref) - 0.76) / 2.5) + 25), 176);
-      lcd_bufwstr8x5(temp_str[0], 4, 0, 0);
-
+      if(adc_avercomplete)
+      {
+        sprintf((char*)temp_str[0], "jox - %d mV", (int)ADC_averdata.jox * 1200 / (int)ADC_averdata.vref);
+        lcd_bufwstr8x5(temp_str[0], 1, 0, 0);
+        sprintf((char*)temp_str[0], "joy - %d mV", (int)ADC_averdata.joy * 1200 / (int)ADC_averdata.vref);
+        lcd_bufwstr8x5(temp_str[0], 2, 0, 0);
+        sprintf((char*)temp_str[0], "Vbt - %d mV", ((int)ADC_averdata.batlvl * 1596 / (int)ADC_averdata.vref));
+        lcd_bufwstr8x5(temp_str[0], 3, 0, 0);
+        sprintf((char*)temp_str[0], "tmp - %d%cC",(358 - ((int)ADC_averdata.tmpr * 279) / (int)ADC_averdata.vref), 176);
+        lcd_bufwstr8x5(temp_str[0], 4, 0, 0);
+        adc_avercomplete = 0;
+      }
       sprintf((char*)temp_str[0], "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
       lcd_bufwstr8x5(temp_str[0], 7, 0, 0);
-
-      buferasedfl = 0;
     }
 
-    /*-----------------Отправка данных из буфера на дисплей------------*/
-    if((HAL_GetTick() - temp_tick[2]) > period[2])
+    /*-----------------Отправка данных из lcd-буфера на дисплей------------*/
+    if((HAL_GetTick() - temp_tick[1]) > period[1])
     {
-      temp_tick[2] = HAL_GetTick();
+      temp_tick[1] = HAL_GetTick();
       lcd_bufupload();
-      bufuploadedfl = 1;
       printf("jox - %d, joy - %d\r\n", ADC_data.jox, ADC_data.joy);
     }
-    if(bufuploadedfl) // после отправки очистить буфер
-    {
-      lcd_buferase();
-      bufuploadedfl = 0;
-      buferasedfl = 1;
-    }
-      /*-----------------------------------------------------------------*/
+    /*---------------------------------------------------------------------*/
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -299,7 +334,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -697,6 +732,27 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
   if(hadc->Instance == ADC1)
   {
+    if(aver_counter)
+    {
+      ADC_averdata.batlvl += ADC_data.batlvl;
+      ADC_averdata.jox += ADC_data.jox;
+      ADC_averdata.joy += ADC_data.joy;
+      ADC_averdata.tmpr += ADC_data.tmpr;
+      ADC_averdata.vref += ADC_data.vref;
+      aver_counter--;
+    }
+    else
+    {
+      ADC_averdata.batlvl /= AVER_PERIOD;
+      ADC_averdata.jox /= AVER_PERIOD;
+      ADC_averdata.joy /= AVER_PERIOD;
+      ADC_averdata.tmpr /= AVER_PERIOD;
+      ADC_averdata.vref /= AVER_PERIOD;
+      aver_counter = AVER_PERIOD;
+      adc_avercomplete = 1;
+    }
+
+    adc_complete = 1;
   }
 }
 /* USER CODE END 4 */
