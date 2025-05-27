@@ -60,16 +60,8 @@ typedef struct
   uint8_t Vbat[128];
   uint8_t Vpowsup[128];
   uint8_t Temper[128];
-  uint8_t UART_string[128];
+  uint8_t UART_string[1024];
   uint8_t Seconds[128];
-  uint8_t TmpStr_0[128];
-  uint8_t TmpStr_1[128];
-  uint8_t TmpStr_2[128];
-  uint8_t TmpStr_3[128];
-  uint8_t TmpStr_4[128];
-  uint8_t TmpStr_5[128];
-  uint8_t TmpStr_6[128];
-  uint8_t TmpStr_7[128];
 }DispDat_t;
 
 /* USER CODE END PTD */
@@ -190,7 +182,7 @@ int main(void)
 
   uint16_t buf_len = 0;
   uint16_t buf_len_prev = 0;
-  uint32_t period[3] = {5, 5, 5};
+  uint32_t period[3] = {20, 20, 5};
   uint32_t temp_tick[3] = {0};
   int Temperature = 0;
   int joyVoltX = 0;
@@ -204,64 +196,62 @@ int main(void)
 /*---------------------------------------------------------------------------------------------------------------------------------------*/
   while (1)
   {
+    RingBuf_Available(&buf_len, &ringbuf);
+    if(buf_len)
+    {
+      if(buf_len_prev != buf_len)
+      {
+        buf_len_prev = buf_len;
+        temp_tick[2] = HAL_GetTick();
+      }
+      if((HAL_GetTick() - temp_tick[2]) > period[2])
+      {
+        RingBuf_DataRead(temp_str.UART_string, buf_len, &ringbuf);
+        temp_str.UART_string[buf_len] = '\0';
+      }
+    }
+
+    if(adc_avercomplete)
+    {
+      ADC_averdata.batlvl = ADC_averdata.batlvl / AVER_PERIOD;
+      ADC_averdata.jox /= AVER_PERIOD;
+      ADC_averdata.joy /= AVER_PERIOD;
+      ADC_averdata.tmpr /= AVER_PERIOD;
+      ADC_averdata.vref /= AVER_PERIOD;
+
+      joyVoltX = (ADC_averdata.jox * 1157) / ADC_averdata.vref;
+      sprintf((char*)temp_str.joyx, "Jx: %d.%02dV", joyVoltX/1000, (joyVoltX%1000)/10);
+      joyVoltY = (ADC_averdata.joy * 1157) / ADC_averdata.vref;
+      sprintf((char*)temp_str.joyy, "Jy: %d.%02dV", joyVoltY/1000, (joyVoltY%1000)/10);
+      Vbattery = (ADC_averdata.batlvl * 1580) / ADC_averdata.vref;
+      sprintf((char*)temp_str.Vbat, "Vb: %d.%02dV", Vbattery/1000, (Vbattery%1000)/10);
+      Vpower = (4095 * 1157) / ADC_averdata.vref;
+      sprintf((char*)temp_str.Vpowsup, "Vp: %d.%02dV", Vpower/1000, (Vpower%1000)/10);
+      Temperature = 358 - ((int)ADC_averdata.tmpr * 279) / (int)ADC_averdata.vref;
+      sprintf((char*)temp_str.Temper, "T:  %d%cC",Temperature, 176);
+
+      ADC_averdata.batlvl = 0;
+      ADC_averdata.jox = 0;
+      ADC_averdata.joy = 0;
+      ADC_averdata.tmpr = 0;
+      ADC_averdata.vref = 0;
+      adc_avercomplete = 0;
+      aver_counter = AVER_PERIOD;
+    }
+
+    sprintf((char*)temp_str.Seconds, "%02lu:%02lu:%02lu", (HAL_GetTick()/1000)/3600, ((HAL_GetTick()/1000)%3600)/60, (HAL_GetTick()/1000)%60);
+
     if((HAL_GetTick() - temp_tick[0]) > period[0])
     {
       temp_tick[0] = HAL_GetTick();
       lcd_buferase();
-
-      RingBuf_Available(&buf_len, &ringbuf);
-
-      if(buf_len)
-      {
-        if(buf_len_prev != buf_len)
-        {
-          buf_len_prev = buf_len;
-          temp_tick[2] = HAL_GetTick();
-        }
-        if((HAL_GetTick() - temp_tick[2]) > period[2])
-        {
-          RingBuf_DataRead(temp_str.UART_string, buf_len, &ringbuf);
-          temp_str.UART_string[buf_len] = '\0';
-        }
-      }
-
-      if(adc_avercomplete)
-      {
-        ADC_averdata.batlvl = ADC_averdata.batlvl / AVER_PERIOD;
-        ADC_averdata.jox /= AVER_PERIOD;
-        ADC_averdata.joy /= AVER_PERIOD;
-        ADC_averdata.tmpr /= AVER_PERIOD;
-        ADC_averdata.vref /= AVER_PERIOD;
-
-        joyVoltX = (ADC_averdata.jox * 1157) / ADC_averdata.vref;
-        sprintf((char*)temp_str.joyx, "Jx: %d.%02dV", joyVoltX/1000, (joyVoltX%1000)/10);
-        joyVoltY = (ADC_averdata.joy * 1157) / ADC_averdata.vref;
-        sprintf((char*)temp_str.joyy, "Jy: %d.%02dV", joyVoltY/1000, (joyVoltY%1000)/10);
-        Vbattery = (ADC_averdata.batlvl * 1580) / ADC_averdata.vref;
-        sprintf((char*)temp_str.Vbat, "Vb: %d.%02dV", Vbattery/1000, (Vbattery%1000)/10);
-        Vpower = (4095 * 1157) / ADC_averdata.vref;
-        sprintf((char*)temp_str.Vpowsup, "Vp: %d.%02dV", Vpower/1000, (Vpower%1000)/10);
-        Temperature = 358 - ((int)ADC_averdata.tmpr * 279) / (int)ADC_averdata.vref;
-        sprintf((char*)temp_str.Temper, "T:  %d%cC",Temperature, 176);
-
-        ADC_averdata.batlvl = 0;
-        ADC_averdata.jox = 0;
-        ADC_averdata.joy = 0;
-        ADC_averdata.tmpr = 0;
-        ADC_averdata.vref = 0;
-        adc_avercomplete = 0;
-        aver_counter = AVER_PERIOD;
-      }
-
-      sprintf((char*)temp_str.Seconds, "%02lu:%02lu:%02lu", (HAL_GetTick()/1000)/3600, ((HAL_GetTick()/1000)%3600)/60, (HAL_GetTick()/1000)%60);
-      lcd_bufwstr8x5(temp_str.Seconds, 2, 65, 0);
       lcd_bufwstr8x5(temp_str.joyx, 0, 0, 0);
       lcd_bufwstr8x5(temp_str.joyy, 1, 0, 0);
       lcd_bufwstr8x5(temp_str.Vbat, 0, 65, 0);
       lcd_bufwstr8x5(temp_str.Vpowsup, 1, 65, 0);
       lcd_bufwstr8x5(temp_str.Temper, 2, 0, 0);
+      lcd_bufwstr8x5(temp_str.Seconds, 2, 65, 0);
       lcd_bufwstr8x5(temp_str.UART_string, 3, 0, 1);
-
     }
 
     /*-----------------Отправка данных из lcd-буфера на дисплей------------*/
@@ -269,7 +259,6 @@ int main(void)
     {
       temp_tick[1] = HAL_GetTick();
       lcd_bufupload();
-      printf("jox - %d, joy - %d\r\n", ADC_data.jox, ADC_data.joy);
     }
     /*---------------------------------------------------------------------*/
 
