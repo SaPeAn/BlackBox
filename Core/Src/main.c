@@ -15,7 +15,7 @@
   *
   ******************************************************************************
   */
-#define  AVER_PERIOD    10
+#define  AVER_PERIOD    100
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -23,8 +23,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drv_lcd_st7565.h"
-//#include <stdio.h>
-//#include <string.h>
 #include "RingBuffer.h"
 
 /* USER CODE END Includes */
@@ -42,19 +40,37 @@ typedef union{
 	};
 }ADCdat_t;
 
-uint32_t aver_counter = AVER_PERIOD;
+typedef struct
+{
+  int batlvl;
+  int jox;
+  int joy;
+  int tmpr;
+  int vref;
+}ADCaverdat_t;
+
+int32_t aver_counter = AVER_PERIOD;
 uint32_t adc_complete = 1;
-uint32_t adc_avercomplete = 1;
+uint32_t adc_avercomplete = 0;
 
 typedef struct
 {
-  uint32_t batlvl;
-  uint32_t jox;
-  uint32_t joy;
-  uint32_t tmpr;
-  uint32_t vref;
-}ADCaverdat_t;
-
+  uint8_t joyx[128];
+  uint8_t joyy[128];
+  uint8_t Vbat[128];
+  uint8_t Vpowsup[128];
+  uint8_t Temper[128];
+  uint8_t UART_string[128];
+  uint8_t Seconds[128];
+  uint8_t TmpStr_0[128];
+  uint8_t TmpStr_1[128];
+  uint8_t TmpStr_2[128];
+  uint8_t TmpStr_3[128];
+  uint8_t TmpStr_4[128];
+  uint8_t TmpStr_5[128];
+  uint8_t TmpStr_6[128];
+  uint8_t TmpStr_7[128];
+}DispDat_t;
 
 /* USER CODE END PTD */
 
@@ -84,9 +100,9 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 RINGBUF_t ringbuf;
-uint8_t rx_buf[1024];
+uint8_t rx_buf[1024] = {0};
 uint8_t temp_byte;
-uint8_t temp_str[5][128];
+DispDat_t temp_str = {0};
 
 ADCdat_t ADC_data;
 ADCaverdat_t ADC_averdata;
@@ -155,7 +171,6 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
-
   /* USER CODE BEGIN 2 */
 
   lcd_init();
@@ -172,10 +187,16 @@ int main(void)
   HAL_UART_Receive_IT(&huart3, &temp_byte, 1);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
   adc_complete = 0;
+
   uint16_t buf_len = 0;
   uint16_t buf_len_prev = 0;
-  uint32_t period[3] = {50, 50, 50};
+  uint32_t period[3] = {5, 5, 5};
   uint32_t temp_tick[3] = {0};
+  int Temperature = 0;
+  int joyVoltX = 0;
+  int joyVoltY = 0;
+  int Vbattery = 0;
+  int Vpower = 0;
   lcd_buferase();
 
 
@@ -183,13 +204,6 @@ int main(void)
 /*---------------------------------------------------------------------------------------------------------------------------------------*/
   while (1)
   {
-    if(adc_complete)
-    {
-      HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
-      adc_complete = 0;
-    }
-
-
     if((HAL_GetTick() - temp_tick[0]) > period[0])
     {
       temp_tick[0] = HAL_GetTick();
@@ -206,31 +220,48 @@ int main(void)
         }
         if((HAL_GetTick() - temp_tick[2]) > period[2])
         {
-          RingBuf_DataRead(temp_str[0], buf_len, &ringbuf);
-          temp_str[0][buf_len] = '\0';
-          lcd_bufwstr8x5(temp_str[0], 0, 0, 0);
-          strncpy((char*)temp_str[1], (char*)temp_str[0], 128);
+          RingBuf_DataRead(temp_str.UART_string, buf_len, &ringbuf);
+          temp_str.UART_string[buf_len] = '\0';
         }
-      }
-      else
-      {
-        lcd_bufwstr8x5(temp_str[1], 0, 0, 0);
       }
 
       if(adc_avercomplete)
       {
-        sprintf((char*)temp_str[0], "jox - %d mV", (int)ADC_averdata.jox * 1200 / (int)ADC_averdata.vref);
-        lcd_bufwstr8x5(temp_str[0], 1, 0, 0);
-        sprintf((char*)temp_str[0], "joy - %d mV", (int)ADC_averdata.joy * 1200 / (int)ADC_averdata.vref);
-        lcd_bufwstr8x5(temp_str[0], 2, 0, 0);
-        sprintf((char*)temp_str[0], "Vbt - %d mV", ((int)ADC_averdata.batlvl * 1596 / (int)ADC_averdata.vref));
-        lcd_bufwstr8x5(temp_str[0], 3, 0, 0);
-        sprintf((char*)temp_str[0], "tmp - %d%cC",(358 - ((int)ADC_averdata.tmpr * 279) / (int)ADC_averdata.vref), 176);
-        lcd_bufwstr8x5(temp_str[0], 4, 0, 0);
+        ADC_averdata.batlvl = ADC_averdata.batlvl / AVER_PERIOD;
+        ADC_averdata.jox /= AVER_PERIOD;
+        ADC_averdata.joy /= AVER_PERIOD;
+        ADC_averdata.tmpr /= AVER_PERIOD;
+        ADC_averdata.vref /= AVER_PERIOD;
+
+        joyVoltX = (ADC_averdata.jox * 1157) / ADC_averdata.vref;
+        sprintf((char*)temp_str.joyx, "Jx: %d.%02dV", joyVoltX/1000, (joyVoltX%1000)/10);
+        joyVoltY = (ADC_averdata.joy * 1157) / ADC_averdata.vref;
+        sprintf((char*)temp_str.joyy, "Jy: %d.%02dV", joyVoltY/1000, (joyVoltY%1000)/10);
+        Vbattery = (ADC_averdata.batlvl * 1580) / ADC_averdata.vref;
+        sprintf((char*)temp_str.Vbat, "Vb: %d.%02dV", Vbattery/1000, (Vbattery%1000)/10);
+        Vpower = (4095 * 1157) / ADC_averdata.vref;
+        sprintf((char*)temp_str.Vpowsup, "Vp: %d.%02dV", Vpower/1000, (Vpower%1000)/10);
+        Temperature = 358 - ((int)ADC_averdata.tmpr * 279) / (int)ADC_averdata.vref;
+        sprintf((char*)temp_str.Temper, "T:  %d%cC",Temperature, 176);
+
+        ADC_averdata.batlvl = 0;
+        ADC_averdata.jox = 0;
+        ADC_averdata.joy = 0;
+        ADC_averdata.tmpr = 0;
+        ADC_averdata.vref = 0;
         adc_avercomplete = 0;
+        aver_counter = AVER_PERIOD;
       }
-      sprintf((char*)temp_str[0], "%ld.%ld sec from start", HAL_GetTick()/1000, (HAL_GetTick()%1000)/100);
-      lcd_bufwstr8x5(temp_str[0], 7, 0, 0);
+
+      sprintf((char*)temp_str.Seconds, "%02lu:%02lu:%02lu", (HAL_GetTick()/1000)/3600, ((HAL_GetTick()/1000)%3600)/60, (HAL_GetTick()/1000)%60);
+      lcd_bufwstr8x5(temp_str.Seconds, 2, 65, 0);
+      lcd_bufwstr8x5(temp_str.joyx, 0, 0, 0);
+      lcd_bufwstr8x5(temp_str.joyy, 1, 0, 0);
+      lcd_bufwstr8x5(temp_str.Vbat, 0, 65, 0);
+      lcd_bufwstr8x5(temp_str.Vpowsup, 1, 65, 0);
+      lcd_bufwstr8x5(temp_str.Temper, 2, 0, 0);
+      lcd_bufwstr8x5(temp_str.UART_string, 3, 0, 1);
+
     }
 
     /*-----------------Отправка данных из lcd-буфера на дисплей------------*/
@@ -242,6 +273,11 @@ int main(void)
     }
     /*---------------------------------------------------------------------*/
 
+    if(adc_complete)
+    {
+      HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC_data.array, 5);
+      adc_complete = 0;
+    }
 
     /* USER CODE END WHILE */
 
@@ -734,23 +770,14 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
   {
     if(aver_counter)
     {
-      ADC_averdata.batlvl += ADC_data.batlvl;
-      ADC_averdata.jox += ADC_data.jox;
-      ADC_averdata.joy += ADC_data.joy;
-      ADC_averdata.tmpr += ADC_data.tmpr;
-      ADC_averdata.vref += ADC_data.vref;
+      ADC_averdata.batlvl += (uint32_t) ADC_data.batlvl;
+      ADC_averdata.jox += (uint32_t) ADC_data.jox;
+      ADC_averdata.joy += (uint32_t) ADC_data.joy;
+      ADC_averdata.tmpr += (uint32_t) ADC_data.tmpr;
+      ADC_averdata.vref += (uint32_t) ADC_data.vref;
       aver_counter--;
     }
-    else
-    {
-      ADC_averdata.batlvl /= AVER_PERIOD;
-      ADC_averdata.jox /= AVER_PERIOD;
-      ADC_averdata.joy /= AVER_PERIOD;
-      ADC_averdata.tmpr /= AVER_PERIOD;
-      ADC_averdata.vref /= AVER_PERIOD;
-      aver_counter = AVER_PERIOD;
-      adc_avercomplete = 1;
-    }
+    else adc_avercomplete = 1;
 
     adc_complete = 1;
   }
